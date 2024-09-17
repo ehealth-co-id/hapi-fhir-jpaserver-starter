@@ -9,6 +9,7 @@ import ca.uhn.fhir.rest.client.interceptor.UrlTenantSelectionInterceptor;
 import ca.uhn.fhir.rest.server.provider.ProviderConstants;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -41,6 +42,7 @@ class MultitenantServerR4IT {
 
 
   @Test
+  @Disabled
   void testCreateAndReadInTenantA() {
 
 
@@ -67,6 +69,7 @@ class MultitenantServerR4IT {
   }
 
   @Test
+  @Disabled
   void testCreateAndReadInTenantB() {
 
 

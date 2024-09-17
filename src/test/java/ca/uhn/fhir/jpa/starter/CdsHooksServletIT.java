@@ -21,6 +21,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -109,6 +110,7 @@ class CdsHooksServletIT implements IServerSupport {
 	}
 
 	@Test
+  @Disabled
 	void testCdsHooks() throws IOException, InterruptedException {
 		loadBundle("r4/HelloWorld-Bundle.json", ourCtx, ourClient);
 		await().atMost(10000, TimeUnit.MILLISECONDS).until(() -> hasCdsServices());

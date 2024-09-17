@@ -44,6 +44,7 @@ import ca.uhn.fhir.jpa.starter.annotations.OnCorsPresent;
 import ca.uhn.fhir.jpa.starter.annotations.OnImplementationGuidesPresent;
 import ca.uhn.fhir.jpa.starter.common.validation.IRepositoryValidationInterceptorFactory;
 import ca.uhn.fhir.jpa.starter.ig.IImplementationGuideOperationProvider;
+import ca.uhn.fhir.jpa.starter.tenancy.HeaderTenantIdentificationStrategy;
 import ca.uhn.fhir.jpa.starter.util.EnvironmentHelper;
 import ca.uhn.fhir.jpa.starter.ig.IImplementationGuideOperationProvider;
 import ca.uhn.fhir.jpa.subscription.util.SubscriptionDebugLogInterceptor;
@@ -444,8 +445,10 @@ public class StarterJpaConfig {
 		// Partitioning
 		if (appProperties.getPartitioning() != null) {
 			fhirServer.registerInterceptor(new RequestTenantPartitionInterceptor());
-			fhirServer.setTenantIdentificationStrategy(new UrlBaseTenantIdentificationStrategy());
-			fhirServer.registerProviders(partitionManagementProvider);
+      String headerKey = appProperties.getPartitioning().getHeader_key();
+      String defaultTenantHeaderValue = appProperties.getPartitioning().getDefault_tenant_header_value();
+      fhirServer.setTenantIdentificationStrategy(new HeaderTenantIdentificationStrategy(headerKey, defaultTenantHeaderValue));
+      fhirServer.registerProviders(partitionManagementProvider);
 		}
 		repositoryValidatingInterceptor.ifPresent(fhirServer::registerInterceptor);
 
