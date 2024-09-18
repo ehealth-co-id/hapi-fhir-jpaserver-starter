@@ -69,6 +69,11 @@
           <groupId>com.microsoft.sqlserver</groupId>
           <artifactId>mssql-jdbc</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.yugabyte</groupId>
+            <artifactId>jdbc-yugabytedb</artifactId>
+            <version>42.3.5-yb-5</version>
+        </dependency>
 
         <!-- Needed for Email subscriptions -->
         <dependency>
