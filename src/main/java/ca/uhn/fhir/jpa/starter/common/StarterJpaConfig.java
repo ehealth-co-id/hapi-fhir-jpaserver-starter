@@ -405,7 +405,8 @@ public class StarterJpaConfig {
 			fhirServer.registerInterceptor(new RequestTenantPartitionInterceptor());
 			String headerKey = appProperties.getPartitioning().getHeader_key();
 			String defaultTenantHeaderValue = appProperties.getPartitioning().getDefault_tenant_header_value();
-			fhirServer.setTenantIdentificationStrategy(new HeaderTenantIdentificationStrategy(headerKey, defaultTenantHeaderValue));
+			String allTenantHeaderValue = appProperties.getPartitioning().getAll_tenant_header_value();
+			fhirServer.setTenantIdentificationStrategy(new HeaderTenantIdentificationStrategy(headerKey, defaultTenantHeaderValue, allTenantHeaderValue));
 			fhirServer.registerProviders(partitionManagementProvider);
 		}
 		repositoryValidatingInterceptor.ifPresent(fhirServer::registerInterceptor);

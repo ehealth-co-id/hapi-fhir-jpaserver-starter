@@ -13,34 +13,43 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class HeaderTenantIdentificationStrategy implements ITenantIdentificationStrategy {
-    private static final Logger ourLog = LoggerFactory.getLogger(HeaderTenantIdentificationStrategy.class);
-		public String defaultTenantHeaderValue;
-		public String headerKey;
+  private static final Logger ourLog = LoggerFactory.getLogger(HeaderTenantIdentificationStrategy.class);
+  public String defaultTenantHeaderValue;
+  public String allTenantHeaderValue;
+  public String headerKey;
 
-    public HeaderTenantIdentificationStrategy(String headerKey, String defaultTenantHeaderValue) {
-			this.headerKey = headerKey;
-			this.defaultTenantHeaderValue = defaultTenantHeaderValue;
+  public HeaderTenantIdentificationStrategy(String headerKey, String defaultTenantHeaderValue, String allTenantHeaderValue) {
+    this.headerKey = headerKey;
+    this.defaultTenantHeaderValue = defaultTenantHeaderValue;
+    this.allTenantHeaderValue = allTenantHeaderValue;
+  }
+
+  public void extractTenant(UrlPathTokenizer theUrlPathTokenizer, RequestDetails theRequestDetails) {
+    String tenant = theRequestDetails.getHeader(this.headerKey);
+    if (tenant != null) {
+      if (tenant.equals(this.defaultTenantHeaderValue)) {
+        theRequestDetails.setTenantId("DEFAULT");
+        return;
+      }
+
+      if (tenant.equals(this.allTenantHeaderValue)) {
+        theRequestDetails.setTenantId("_ALL");
+        return;
+      }
+
+      if (!tenant.equals("DEFAULT") && !tenant.equals("_ALL")) {
+        theRequestDetails.setTenantId(tenant);
+        return;
+      }
     }
 
-    public void extractTenant(UrlPathTokenizer theUrlPathTokenizer, RequestDetails theRequestDetails) {
-        String host = theRequestDetails.getHeader(this.headerKey);
-        if (host != null) {
-						ourLog.info(host);
-						if (host.equals(this.defaultTenantHeaderValue)) {
-							theRequestDetails.setTenantId("DEFAULT");
-							return;
-						}
-            theRequestDetails.setTenantId(host);
-						return;
-        }
+    HapiLocalizer localizer = theRequestDetails.getServer().getFhirContext().getLocalizer();
+    String var10002 = Msg.code(307);
+    throw new InvalidRequestException(var10002 + localizer.getMessage(RestfulServer.class, "rootRequest.multitenant", new Object[0]));
+  }
 
-				HapiLocalizer localizer = theRequestDetails.getServer().getFhirContext().getLocalizer();
-				String var10002 = Msg.code(307);
-				throw new InvalidRequestException(var10002 + localizer.getMessage(RestfulServer.class, "rootRequest.multitenant", new Object[0]));
-    }
-
-    public String massageServerBaseUrl(String theFhirServerBase, RequestDetails theRequestDetails) {
-        Validate.notNull(theRequestDetails.getTenantId(), "theTenantId is not populated on this request", new Object[0]);
-        return theFhirServerBase + "/";
-    }
+  public String massageServerBaseUrl(String theFhirServerBase, RequestDetails theRequestDetails) {
+    Validate.notNull(theRequestDetails.getTenantId(), "theTenantId is not populated on this request", new Object[0]);
+    return theFhirServerBase + "/";
+  }
 }
