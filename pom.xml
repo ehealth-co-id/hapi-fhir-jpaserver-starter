@@ -21,6 +21,7 @@
     <packaging>war</packaging>
 
     <properties>
+        <hapi.storage.version>7.4.0-ehealth.1</hapi.storage.version>
         <java.version>17</java.version>
     </properties>
 
@@ -32,6 +33,10 @@
 
     <repositories>
         <repository>
+            <id>ehealth-maven-repo</id>
+            <url>https://raw.githubusercontent.com/ehealth-co-id/hapi-fhir/master/maven-repo</url>
+        </repository>
+        <repository>
             <id>oss-snapshots</id>
             <snapshots>
                 <enabled>true</enabled>
@@ -42,6 +47,14 @@
 
     <dependencyManagement>
        <dependencies>
+
+            <!-- ehealth fork of hapi-fhir-storage: v7.4.0 + GraphQL _include reference prefetch.
+                 Overrides the transitive upstream 7.4.0; all other HAPI modules stay upstream. -->
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>hapi-fhir-storage</artifactId>
+                <version>${hapi.storage.version}</version>
+            </dependency>
 
             <!-- Temporarily override CR depedencies for debugging -->
 <!--            <dependency>-->
