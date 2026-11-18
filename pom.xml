@@ -21,7 +21,7 @@
     <packaging>war</packaging>
 
     <properties>
-        <hapi.storage.version>7.4.0-ehealth.2</hapi.storage.version>
+        <hapi.ehealth.version>7.4.0-ehealth.3</hapi.ehealth.version>
         <java.version>17</java.version>
     </properties>
 
@@ -48,12 +48,13 @@
     <dependencyManagement>
        <dependencies>
 
-            <!-- ehealth fork of hapi-fhir-storage: v7.4.0 + GraphQL _include reference prefetch.
-                 Overrides the transitive upstream 7.4.0; all other HAPI modules stay upstream. -->
+            <!-- ehealth fork of hapi-fhir-storage (GraphQL fixes). Overrides the transitive upstream 7.4.0.
+                 hapi-fhir-jpaserver-base (_filter optimizer) is the other forked module, see below.
+                 All other HAPI modules stay upstream 7.4.0. -->
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>hapi-fhir-storage</artifactId>
-                <version>${hapi.storage.version}</version>
+                <version>${hapi.ehealth.version}</version>
             </dependency>
 
             <!-- Temporarily override CR depedencies for debugging -->
@@ -123,7 +124,7 @@
         <dependency>
             <groupId>ca.uhn.hapi.fhir</groupId>
             <artifactId>hapi-fhir-jpaserver-base</artifactId>
-            <version>${project.parent.version}</version>
+            <version>${hapi.ehealth.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.springframework</groupId>
