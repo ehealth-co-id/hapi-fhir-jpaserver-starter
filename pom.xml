@@ -21,7 +21,7 @@
     <packaging>war</packaging>
 
     <properties>
-        <hapi.storage.version>7.4.0-ehealth.1</hapi.storage.version>
+        <hapi.storage.version>7.4.0-ehealth.2</hapi.storage.version>
         <java.version>17</java.version>
     </properties>
 
