@@ -7,7 +7,7 @@ import ca.uhn.fhir.jpa.starter.mcp.ToolFactory;
 import ca.uhn.fhir.rest.api.server.cdshooks.CdsServiceRequestContextJson;
 import ca.uhn.hapi.fhir.cdshooks.api.ICdsServiceRegistry;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -58,7 +58,7 @@ public class McpCdsBridge implements McpBridge {
 		final String content;
 		try {
 			content = objectMapper.writeValueAsString(serviceResponseJson);
-		} catch (JsonProcessingException e) {
+		} catch (tools.jackson.core.JacksonException e) {
 			throw new RuntimeException(e);
 		}
 		return McpSchema.CallToolResult.builder()
