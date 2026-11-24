@@ -56,4 +56,46 @@ class HeaderTenantIdentificationStrategyTest {
 		verify(rd).setTenantId("any thing/goes");
 		assertEquals("X-TENANT", new HeaderTenantIdentificationStrategy("X-TENANT", "DEFAULT").headerKey);
 	}
+
+	private static final String LONG_SECRET = "AGPe3CtNLSNX1eunNxIRyTLkDCaVCTr3wSximVlkxPK0t8fITktvOpKq2lWrv3sku0ctt5qnEWm5zkhmaeVr0r";
+	private static final String LONG_SECRET_SHA256 = "7a3871e9a5bb4aea71e94a6aa5b6dad56f1436c2b7f956bf69f5b72e4c294be5";
+
+	@Test
+	void defaultValueIsExemptFromThePatternWhateverItsLengthOrCharacters() {
+		for (String secret : java.util.List.of(LONG_SECRET, "a.b+c/d=", "x".repeat(300))) {
+			RequestDetails rd = requestWith(secret);
+			new HeaderTenantIdentificationStrategy("X-TENANT", secret).extractTenant(null, rd);
+			verify(rd).setTenantId("DEFAULT");
+		}
+	}
+
+	@Test
+	void duplicateHeaderCarryingTheDefaultValueIsStillRejected() {
+		var strategy = new HeaderTenantIdentificationStrategy("X-TENANT", LONG_SECRET);
+		assertThrows(InvalidRequestException.class,
+			() -> strategy.extractTenant(null, requestWith(LONG_SECRET, LONG_SECRET)));
+	}
+
+	@Test
+	void sha256DigestSelectsTheDefaultTenant() {
+		RequestDetails rd = requestWith(LONG_SECRET);
+		new HeaderTenantIdentificationStrategy("X-TENANT", "DEFAULT", "^[A-Za-z0-9_-]{1,64}$", LONG_SECRET_SHA256.toUpperCase())
+			.extractTenant(null, rd);
+		verify(rd).setTenantId("DEFAULT");
+	}
+
+	@Test
+	void whenDigestIsConfiguredThePlainDefaultValueNoLongerWorks() {
+		var strategy = new HeaderTenantIdentificationStrategy("X-TENANT", "DEFAULT", "^[A-Za-z0-9_-]{1,64}$", LONG_SECRET_SHA256);
+		// the literal DEFAULT (the property default) must not become the admin tenant, and is reserved
+		assertThrows(InvalidRequestException.class, () -> strategy.extractTenant(null, requestWith("DEFAULT")));
+		// a wrong secret is not a tenant either (fails the pattern because of its length)
+		assertThrows(InvalidRequestException.class, () -> strategy.extractTenant(null, requestWith(LONG_SECRET + "x")));
+	}
+
+	@Test
+	void malformedDigestFailsFast() {
+		assertThrows(IllegalArgumentException.class,
+			() -> new HeaderTenantIdentificationStrategy("X-TENANT", "DEFAULT", null, "not-hex"));
+	}
 }

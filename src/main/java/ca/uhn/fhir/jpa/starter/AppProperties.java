@@ -1078,6 +1078,16 @@ public class AppProperties {
 		private boolean request_tenant_partitioning_mode = true;
 		private String header_key = "X-TENANT";
 		private String default_tenant_header_value = "DEFAULT";
+		// hex SHA-256 of the header value that selects the DEFAULT partition; when set it replaces default_tenant_header_value
+		private String default_tenant_header_value_sha256 = null;
+
+		public String getDefault_tenant_header_value_sha256() {
+			return default_tenant_header_value_sha256;
+		}
+
+		public void setDefault_tenant_header_value_sha256(String default_tenant_header_value_sha256) {
+			this.default_tenant_header_value_sha256 = default_tenant_header_value_sha256;
+		}
 		// regex a tenant ID from the header must match; blank disables the check
 		private String tenant_id_pattern = "^[A-Za-z0-9_-]{1,64}$";
 		// register the $partition-management-* operations (only the DEFAULT tenant may call them)

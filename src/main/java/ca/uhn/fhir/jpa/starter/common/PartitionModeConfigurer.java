@@ -49,7 +49,8 @@ public class PartitionModeConfigurer {
 			myRestfulServer.setTenantIdentificationStrategy(new HeaderTenantIdentificationStrategy(
 					partitioning.getHeader_key(),
 					partitioning.getDefault_tenant_header_value(),
-					partitioning.getTenant_id_pattern()));
+					partitioning.getTenant_id_pattern(),
+					partitioning.getDefault_tenant_header_value_sha256()));
 		}
 
 		if (partitioning.isPartition_management_enabled()) {

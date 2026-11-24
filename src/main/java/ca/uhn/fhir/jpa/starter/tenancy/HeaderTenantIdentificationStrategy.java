@@ -7,6 +7,9 @@ import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import ca.uhn.fhir.rest.server.tenant.ITenantIdentificationStrategy;
 import ca.uhn.fhir.util.UrlPathTokenizer;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
@@ -20,19 +23,61 @@ public class HeaderTenantIdentificationStrategy implements ITenantIdentification
   public String defaultTenantHeaderValue;
   public String headerKey;
   private final Pattern tenantIdPattern;
+  private final byte[] defaultTenantHeaderValueSha256;
 
   public HeaderTenantIdentificationStrategy(String headerKey, String defaultTenantHeaderValue) {
     this(headerKey, defaultTenantHeaderValue, DEFAULT_TENANT_ID_PATTERN);
   }
 
-  /**
-   * @param tenantIdPattern regex a tenant ID must match; blank disables the check
-   */
   public HeaderTenantIdentificationStrategy(
       String headerKey, String defaultTenantHeaderValue, String tenantIdPattern) {
+    this(headerKey, defaultTenantHeaderValue, tenantIdPattern, null);
+  }
+
+  /**
+   * @param tenantIdPattern regex a tenant ID must match; blank disables the check
+   * @param defaultTenantHeaderValueSha256 hex SHA-256 of the header value that selects the DEFAULT partition. When
+   *     set it replaces defaultTenantHeaderValue, so the secret itself does not have to be configured
+   */
+  public HeaderTenantIdentificationStrategy(
+      String headerKey,
+      String defaultTenantHeaderValue,
+      String tenantIdPattern,
+      String defaultTenantHeaderValueSha256) {
     this.headerKey = headerKey;
     this.defaultTenantHeaderValue = defaultTenantHeaderValue;
     this.tenantIdPattern = StringUtils.isBlank(tenantIdPattern) ? null : Pattern.compile(tenantIdPattern);
+    this.defaultTenantHeaderValueSha256 = parseSha256(defaultTenantHeaderValueSha256);
+  }
+
+  private static byte[] parseSha256(String hex) {
+    if (StringUtils.isBlank(hex)) {
+      return null;
+    }
+    String h = hex.trim();
+    if (!h.matches("^[0-9a-fA-F]{64}$")) {
+      throw new IllegalArgumentException("default_tenant_header_value_sha256 must be 64 hex characters");
+    }
+    byte[] out = new byte[32];
+    for (int i = 0; i < 32; i++) {
+      out[i] = (byte) Integer.parseInt(h.substring(2 * i, 2 * i + 2), 16);
+    }
+    return out;
+  }
+
+  /** Constant-time check of the header value against the configured default tenant value (or its digest). */
+  private boolean isDefaultTenantValue(String value) {
+    try {
+      MessageDigest sha = MessageDigest.getInstance("SHA-256");
+      byte[] actual = sha.digest(value.getBytes(StandardCharsets.UTF_8));
+      if (defaultTenantHeaderValueSha256 != null) {
+        return MessageDigest.isEqual(actual, defaultTenantHeaderValueSha256);
+      }
+      return defaultTenantHeaderValue != null
+          && MessageDigest.isEqual(actual, sha.digest(defaultTenantHeaderValue.getBytes(StandardCharsets.UTF_8)));
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   public void extractTenant(UrlPathTokenizer theUrlPathTokenizer, RequestDetails theRequestDetails) {
@@ -43,12 +88,16 @@ public class HeaderTenantIdentificationStrategy implements ITenantIdentification
         throw invalidHeader();
       }
       String tenantId = tenantIds.get(0);
-      if (tenantId == null || (tenantIdPattern != null && !tenantIdPattern.matcher(tenantId).matches())) {
+      if (tenantId == null) {
         throw invalidHeader();
       }
-      if (tenantId.equals(this.defaultTenantHeaderValue)) {
+      // the default tenant value is a credential, not a tenant name: it is checked before (and exempt from) the pattern
+      if (isDefaultTenantValue(tenantId)) {
         theRequestDetails.setTenantId("DEFAULT");
         return;
+      }
+      if (tenantIdPattern != null && !tenantIdPattern.matcher(tenantId).matches()) {
+        throw invalidHeader();
       }
       if (!tenantId.equals("DEFAULT")) {
         theRequestDetails.setTenantId(tenantId);

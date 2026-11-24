@@ -382,7 +382,9 @@ hapi:
     #
     # Tenant is taken from a request header (HeaderTenantIdentificationStrategy), not from the URL:
     #   header_key: X-TENANT                  # header carrying the tenant ID
-    #   default_tenant_header_value: DEFAULT  # header value that selects the DEFAULT partition
+    #   default_tenant_header_value: DEFAULT  # header value that selects the DEFAULT partition (a credential; exempt from tenant_id_pattern)
+    #   default_tenant_header_value_sha256: <hex>  # SHA-256 of that value; when set it replaces default_tenant_header_value
+    #                                              # so the secret need not be configured: printf %s "$VALUE" | sha256sum
     #   tenant_id_pattern: '^[A-Za-z0-9_-]{1,64}$'  # tenant IDs must match; blank disables the check
     #   partition_management_enabled: true    # $partition-management-* ops; only the DEFAULT tenant may call them
     # A missing, duplicated or malformed header is rejected with 400.
