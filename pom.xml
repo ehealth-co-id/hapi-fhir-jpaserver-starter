@@ -4,6 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <properties>
+        <hapi.ehealth.version>9.0.0-ehealth.1</hapi.ehealth.version>
         <java.version>17</java.version>
         <hapi.fhir.jpa.server.starter.revision>2</hapi.fhir.jpa.server.starter.revision>
         <clinical-reasoning.version>4.13.0</clinical-reasoning.version>
@@ -48,6 +49,10 @@
 
     <repositories>
         <repository>
+            <id>ehealth-maven-repo</id>
+            <url>https://raw.githubusercontent.com/ehealth-co-id/hapi-fhir/master/maven-repo</url>
+        </repository>
+        <repository>
             <name>Central Portal Snapshots</name>
             <id>central-portal-snapshots</id>
             <url>https://central.sonatype.com/repository/maven-snapshots/</url>
@@ -62,6 +67,15 @@
 
     <dependencyManagement>
        <dependencies>
+
+            <!-- ehealth fork of hapi-fhir-storage (GraphQL changes). Overrides the transitive upstream 9.0.0.
+                 hapi-fhir-jpaserver-base (_filter optimizer) is the other forked module, see below.
+                 All other HAPI modules stay upstream 9.0.0. -->
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>hapi-fhir-storage</artifactId>
+                <version>${hapi.ehealth.version}</version>
+            </dependency>
 
             <dependency>
                <groupId>org.glassfish.jaxb</groupId>
@@ -143,7 +157,7 @@
         <dependency>
             <groupId>ca.uhn.hapi.fhir</groupId>
             <artifactId>hapi-fhir-jpaserver-base</artifactId>
-            <version>${project.parent.version}</version>
+            <version>${hapi.ehealth.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.springframework</groupId>

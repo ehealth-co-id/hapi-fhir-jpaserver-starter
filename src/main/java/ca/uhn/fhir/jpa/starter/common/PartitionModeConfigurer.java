@@ -6,9 +6,9 @@ import ca.uhn.fhir.jpa.model.config.PartitionSettings;
 import ca.uhn.fhir.jpa.partition.PartitionManagementProvider;
 import ca.uhn.fhir.jpa.searchparam.extractor.ISearchParamExtractor;
 import ca.uhn.fhir.jpa.starter.AppProperties;
+import ca.uhn.fhir.jpa.starter.tenancy.HeaderTenantIdentificationStrategy;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.interceptor.partition.RequestTenantPartitionInterceptor;
-import ca.uhn.fhir.rest.server.tenant.UrlBaseTenantIdentificationStrategy;
 import ca.uhn.fhir.storage.TransactionBundleNormalizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +45,10 @@ public class PartitionModeConfigurer {
 			RequestTenantPartitionInterceptor tenantPartitionInterceptor = new RequestTenantPartitionInterceptor();
 			tenantPartitionInterceptor.setPartitionSettings(myPartitionSettings);
 			myRestfulServer.registerInterceptor(tenantPartitionInterceptor);
-			myRestfulServer.setTenantIdentificationStrategy(new UrlBaseTenantIdentificationStrategy());
+			myRestfulServer.setTenantIdentificationStrategy(new HeaderTenantIdentificationStrategy(
+					partitioning.getHeader_key(),
+					partitioning.getDefault_tenant_header_value(),
+					partitioning.getTenant_id_pattern()));
 		}
 
 		myRestfulServer.registerProviders(myPartitionManagementProvider);

@@ -1075,6 +1075,33 @@ public class AppProperties {
 		private Boolean patient_id_partitioning_mode = false;
 		private Integer default_partition_id = 0;
 		private boolean request_tenant_partitioning_mode = true;
+		private String header_key = "X-TENANT";
+		private String default_tenant_header_value = "DEFAULT";
+		private String tenant_id_pattern = "^[A-Za-z0-9_-]{1,64}$";
+
+		public String getHeader_key() {
+			return header_key;
+		}
+
+		public void setHeader_key(String header_key) {
+			this.header_key = header_key;
+		}
+
+		public String getDefault_tenant_header_value() {
+			return default_tenant_header_value;
+		}
+
+		public void setDefault_tenant_header_value(String default_tenant_header_value) {
+			this.default_tenant_header_value = default_tenant_header_value;
+		}
+
+		public String getTenant_id_pattern() {
+			return tenant_id_pattern;
+		}
+
+		public void setTenant_id_pattern(String tenant_id_pattern) {
+			this.tenant_id_pattern = tenant_id_pattern;
+		}
 
 		public boolean isRequest_tenant_partitioning_mode() {
 			return request_tenant_partitioning_mode;
