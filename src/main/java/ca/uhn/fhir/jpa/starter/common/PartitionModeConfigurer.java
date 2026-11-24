@@ -7,6 +7,7 @@ import ca.uhn.fhir.jpa.partition.PartitionManagementProvider;
 import ca.uhn.fhir.jpa.searchparam.extractor.ISearchParamExtractor;
 import ca.uhn.fhir.jpa.starter.AppProperties;
 import ca.uhn.fhir.jpa.starter.tenancy.HeaderTenantIdentificationStrategy;
+import ca.uhn.fhir.jpa.starter.tenancy.PartitionManagementGuardInterceptor;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.interceptor.partition.RequestTenantPartitionInterceptor;
 import ca.uhn.fhir.storage.TransactionBundleNormalizer;
@@ -51,6 +52,10 @@ public class PartitionModeConfigurer {
 					partitioning.getTenant_id_pattern()));
 		}
 
-		myRestfulServer.registerProviders(myPartitionManagementProvider);
+		if (partitioning.isPartition_management_enabled()) {
+			myRestfulServer.registerProviders(myPartitionManagementProvider);
+			// only the DEFAULT tenant may create/update/delete partitions
+			myRestfulServer.registerInterceptor(new PartitionManagementGuardInterceptor());
+		}
 	}
 }

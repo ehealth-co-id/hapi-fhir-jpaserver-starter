@@ -8,6 +8,8 @@ import ca.uhn.fhir.rest.client.api.IHttpRequest;
 import ca.uhn.fhir.rest.client.api.IHttpResponse;
 import ca.uhn.fhir.rest.client.api.ServerValidationModeEnum;
 import ca.uhn.fhir.rest.client.interceptor.LoggingInterceptor;
+import ca.uhn.fhir.rest.server.exceptions.BaseServerResponseException;
+import ca.uhn.fhir.rest.server.exceptions.ForbiddenOperationException;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
 import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
 import ca.uhn.fhir.rest.server.provider.ProviderConstants;
@@ -154,10 +156,31 @@ class MultitenantServerR4IT {
 	}
 
 	@Test
+	void testDefaultPartitionIsStoredAsNull() throws Exception {
+		createPatient("DEFAULT", "Family Default");
+		try (var con = java.sql.DriverManager.getConnection("jdbc:h2:mem:dbr4-mt", "sa", "");
+				var st = con.createStatement();
+				var rs = st.executeQuery(
+					"select count(*) from HFJ_RESOURCE where RES_TYPE='Patient' and PARTITION_ID is null")) {
+			rs.next();
+			org.junit.jupiter.api.Assertions.assertTrue(rs.getInt(1) >= 1, "default partition rows must have NULL PARTITION_ID");
+		}
+	}
+
+	@Test
 	void testMissingHeaderIsRejected() {
 		tenant.set(); // no header
 		assertThrows(InvalidRequestException.class,
 			() -> ourClient.search().forResource(Patient.class).returnBundle(Bundle.class).execute());
+	}
+
+	private int partitionCount() throws Exception {
+		try (var con = java.sql.DriverManager.getConnection("jdbc:h2:mem:dbr4-mt", "sa", "");
+				var st = con.createStatement();
+				var rs = st.executeQuery("select count(*) from HFJ_PARTITION")) {
+			rs.next();
+			return rs.getInt(1);
+		}
 	}
 
 	@Test
@@ -169,10 +192,44 @@ class MultitenantServerR4IT {
 
 	@Test
 	void testInvalidTenantIdIsRejected() {
-		for (String bad : List.of("tenant a", "../x", "A".repeat(65), "a;b", "tenänt")) {
+		for (String bad : List.of("tenant a", "../x", "A".repeat(65), "a;b", "ten\u00e4nt")) {
 			tenant.set(bad);
 			assertThrows(InvalidRequestException.class,
 				() -> ourClient.search().forResource(Patient.class).returnBundle(Bundle.class).execute(), bad);
 		}
+	}
+
+	@Test
+	void testMixedCaseTenantIdWithDashAndUnderscoreIsAccepted() {
+		createPartition(6, "Tenant_Mixed-Case-01");
+		createPatient("Tenant_Mixed-Case-01", "Family Mixed");
+		assertEquals(1, searchPatients("Tenant_Mixed-Case-01").getEntry().size());
+	}
+
+	@Test
+	void testPartitionManagementIsOnlyForDefaultTenant() throws Exception {
+		createPartition(7, "TENANT-F");
+		int before = partitionCount();
+
+		tenant.set("TENANT-F");
+		assertThrows(ForbiddenOperationException.class, () -> ourClient
+			.operation()
+			.onServer()
+			.named(ProviderConstants.PARTITION_MANAGEMENT_CREATE_PARTITION)
+			.withParameter(Parameters.class, ProviderConstants.PARTITION_MANAGEMENT_PARTITION_ID, new IntegerType(8))
+			.andParameter(ProviderConstants.PARTITION_MANAGEMENT_PARTITION_NAME, new CodeType("TENANT-G"))
+			.execute());
+
+		assertEquals(before, partitionCount());
+	}
+
+	@Test
+	void testUnknownTenantIsRejectedWithoutCreatingAPartition() throws Exception {
+		int before = partitionCount();
+		tenant.set("TENANT-UNKNOWN");
+		BaseServerResponseException e = assertThrows(BaseServerResponseException.class,
+			() -> ourClient.search().forResource(Patient.class).returnBundle(Bundle.class).execute());
+		org.junit.jupiter.api.Assertions.assertTrue(e.getStatusCode() >= 400 && e.getStatusCode() < 500, "status " + e.getStatusCode());
+		assertEquals(before, partitionCount());
 	}
 }

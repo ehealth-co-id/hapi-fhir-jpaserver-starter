@@ -1073,11 +1073,31 @@ public class AppProperties {
 		private Boolean conditional_create_duplicate_identifiers_enabled = false;
 		private Boolean database_partition_mode_enabled = false;
 		private Boolean patient_id_partitioning_mode = false;
-		private Integer default_partition_id = 0;
+		// null keeps the default partition stored as NULL (multitenant-v7.0.0 behavior); database partition mode falls back to 0
+		private Integer default_partition_id = null;
 		private boolean request_tenant_partitioning_mode = true;
 		private String header_key = "X-TENANT";
 		private String default_tenant_header_value = "DEFAULT";
+		// regex a tenant ID from the header must match; blank disables the check
 		private String tenant_id_pattern = "^[A-Za-z0-9_-]{1,64}$";
+		// register the $partition-management-* operations (only the DEFAULT tenant may call them)
+		private boolean partition_management_enabled = true;
+
+		public String getTenant_id_pattern() {
+			return tenant_id_pattern;
+		}
+
+		public void setTenant_id_pattern(String tenant_id_pattern) {
+			this.tenant_id_pattern = tenant_id_pattern;
+		}
+
+		public boolean isPartition_management_enabled() {
+			return partition_management_enabled;
+		}
+
+		public void setPartition_management_enabled(boolean partition_management_enabled) {
+			this.partition_management_enabled = partition_management_enabled;
+		}
 
 		public String getHeader_key() {
 			return header_key;
@@ -1093,14 +1113,6 @@ public class AppProperties {
 
 		public void setDefault_tenant_header_value(String default_tenant_header_value) {
 			this.default_tenant_header_value = default_tenant_header_value;
-		}
-
-		public String getTenant_id_pattern() {
-			return tenant_id_pattern;
-		}
-
-		public void setTenant_id_pattern(String tenant_id_pattern) {
-			this.tenant_id_pattern = tenant_id_pattern;
 		}
 
 		public boolean isRequest_tenant_partitioning_mode() {

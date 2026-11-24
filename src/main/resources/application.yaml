@@ -375,10 +375,20 @@ hapi:
     # partitioning:
     #   allow_references_across_partitions: false
     #   partitioning_include_in_search_hashes: false
-    #   default_partition_id: 0
+    #   default_partition_id: null  # unset: default partition is stored as NULL
     # database_partition_mode_enabled: true
     # patient_id_partitioning_mode: true
     # request_tenant_partitioning_mode: false
+    #
+    # Tenant is taken from a request header (HeaderTenantIdentificationStrategy), not from the URL:
+    #   header_key: X-TENANT                  # header carrying the tenant ID
+    #   default_tenant_header_value: DEFAULT  # header value that selects the DEFAULT partition
+    #   tenant_id_pattern: '^[A-Za-z0-9_-]{1,64}$'  # tenant IDs must match; blank disables the check
+    #   partition_management_enabled: true    # $partition-management-* ops; only the DEFAULT tenant may call them
+    # A missing, duplicated or malformed header is rejected with 400.
+    # The header is only a claim by the client: the gateway in front of the server must strip any client supplied
+    # X-TENANT, set it from the authenticated identity, send "Vary: X-TENANT" on cached responses, and be the only way
+    # to reach the server. Treat DEFAULT as the admin tenant.
 
     # -------------------------------------------------------------------------------
     # K. CORS

@@ -9,88 +9,95 @@ import ca.uhn.fhir.rest.server.tenant.ITenantIdentificationStrategy;
 import ca.uhn.fhir.util.UrlPathTokenizer;
 import java.util.List;
 import java.util.regex.Pattern;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-/**
- * Identifies the tenant from a request header (default {@code X-TENANT}) instead of from the URL path.
- * <p>
- * The header is only a claim by the client. The gateway in front of the server is the trust boundary: it must strip any
- * client supplied value and set the header from the authenticated identity, and the server must not be reachable
- * except through it.
- * <ul>
- *   <li>A missing header is rejected (never falls back to DEFAULT).</li>
- *   <li>More than one header value is rejected, so a gateway and this server cannot disagree about the tenant.</li>
- *   <li>The value must match a pattern (default {@value #DEFAULT_TENANT_ID_PATTERN}); anything else is rejected with a
- *   generic message.</li>
- *   <li>The configured default value selects the {@value #DEFAULT_TENANT}  partition. The literal DEFAULT (in any case)
- *   is otherwise reserved and rejected, so there is exactly one way to address the default partition.</li>
- * </ul>
- */
 public class HeaderTenantIdentificationStrategy implements ITenantIdentificationStrategy {
+  private static final Logger ourLog = LoggerFactory.getLogger(HeaderTenantIdentificationStrategy.class);
+  public static final String DEFAULT_TENANT_ID_PATTERN = "^[A-Za-z0-9_-]{1,64}$";
+  public String defaultTenantHeaderValue;
+  public String headerKey;
+  private final Pattern tenantIdPattern;
 
-	public static final String DEFAULT_TENANT = "DEFAULT";
-	public static final String DEFAULT_TENANT_ID_PATTERN = "^[A-Za-z0-9_-]{1,64}$";
+  public HeaderTenantIdentificationStrategy(String headerKey, String defaultTenantHeaderValue) {
+    this(headerKey, defaultTenantHeaderValue, DEFAULT_TENANT_ID_PATTERN);
+  }
 
-	private final String headerKey;
-	private final String defaultTenantHeaderValue;
-	private final Pattern tenantIdPattern;
+  /**
+   * @param tenantIdPattern regex a tenant ID must match; blank disables the check
+   */
+  public HeaderTenantIdentificationStrategy(
+      String headerKey, String defaultTenantHeaderValue, String tenantIdPattern) {
+    this.headerKey = headerKey;
+    this.defaultTenantHeaderValue = defaultTenantHeaderValue;
+    this.tenantIdPattern = StringUtils.isBlank(tenantIdPattern) ? null : Pattern.compile(tenantIdPattern);
+  }
 
-	public HeaderTenantIdentificationStrategy(String headerKey, String defaultTenantHeaderValue) {
-		this(headerKey, defaultTenantHeaderValue, DEFAULT_TENANT_ID_PATTERN);
-	}
+  public void extractTenant(UrlPathTokenizer theUrlPathTokenizer, RequestDetails theRequestDetails) {
+    List<String> tenantIds = theRequestDetails.getHeaders(this.headerKey);
+    if (tenantIds != null && !tenantIds.isEmpty()) {
+      // more than one value: a gateway and this server could disagree about the tenant
+      if (tenantIds.size() > 1) {
+        throw invalidHeader();
+      }
+      String tenantId = tenantIds.get(0);
+      if (tenantId == null || (tenantIdPattern != null && !tenantIdPattern.matcher(tenantId).matches())) {
+        throw invalidHeader();
+      }
+      if (tenantId.equals(this.defaultTenantHeaderValue)) {
+        theRequestDetails.setTenantId("DEFAULT");
+        return;
+      }
+      if (!tenantId.equals("DEFAULT")) {
+        theRequestDetails.setTenantId(tenantId);
+        return;
+      }
+      throw invalidHeader();
+    }
 
-	public HeaderTenantIdentificationStrategy(
-			String headerKey, String defaultTenantHeaderValue, String tenantIdPattern) {
-		Validate.notBlank(headerKey, "headerKey must not be blank");
-		Validate.notBlank(defaultTenantHeaderValue, "defaultTenantHeaderValue must not be blank");
-		this.headerKey = headerKey;
-		this.defaultTenantHeaderValue = defaultTenantHeaderValue;
-		this.tenantIdPattern = Pattern.compile(tenantIdPattern == null ? DEFAULT_TENANT_ID_PATTERN : tenantIdPattern);
-	}
+    HapiLocalizer localizer = theRequestDetails.getServer().getFhirContext().getLocalizer();
+    String var10002 = Msg.code(307);
+    throw new InvalidRequestException(var10002 + localizer.getMessage(RestfulServer.class, "rootRequest.multitenant", new Object[0]));
+  }
 
-	@Override
-	public void extractTenant(UrlPathTokenizer theUrlPathTokenizer, RequestDetails theRequestDetails) {
-		List<String> values = theRequestDetails.getHeaders(headerKey);
+  private InvalidRequestException invalidHeader() {
+    return new InvalidRequestException("Invalid or ambiguous " + this.headerKey + " header");
+  }
 
-		if (values == null || values.isEmpty()) {
-			HapiLocalizer localizer =
-					theRequestDetails.getServer().getFhirContext().getLocalizer();
-			throw new InvalidRequestException(
-					Msg.code(307) + localizer.getMessage(RestfulServer.class, "rootRequest.multitenant"));
-		}
-		if (values.size() > 1) {
-			throw invalid();
-		}
+  @Override
+  public String massageServerBaseUrl(String theFhirServerBase, RequestDetails theRequestDetails) {
+    Validate.notNull(theRequestDetails.getTenantId(), "theTenantId is not populated on this request", new Object[0]);
+    return theFhirServerBase + "/";
+  }
 
-		String tenantId = values.get(0);
-		if (tenantId == null || !tenantIdPattern.matcher(tenantId).matches()) {
-			throw invalid();
-		}
+  @Override
+  public String resolveRelativeUrl(String theRelativeUrl, RequestDetails theRequestDetails) {
+    UrlPathTokenizer tokenizer = new UrlPathTokenizer(theRelativeUrl);
+    // there is no more tokens in the URL - skip url resolution
+    if (!tokenizer.hasMoreTokens() || tokenizer.peek() == null) {
+      return theRelativeUrl;
+    }
+    String nextToken = tokenizer.peek();
+    // there is no tenant ID in parent request details or tenant ID is already present in URL - skip url resolution
+    if (theRequestDetails.getTenantId() == null || nextToken.equals(theRequestDetails.getTenantId())) {
+      return theRelativeUrl;
+    }
 
-		if (tenantId.equals(defaultTenantHeaderValue)) {
-			theRequestDetails.setTenantId(DEFAULT_TENANT);
-		} else if (tenantId.equalsIgnoreCase(DEFAULT_TENANT)) {
-			// reserved: the default partition is addressed only through the configured default value
-			throw invalid();
-		} else {
-			theRequestDetails.setTenantId(tenantId);
-		}
-	}
+    // token is Resource type or operation - adding tenant ID from parent request details
+    if (isResourceType(nextToken, theRequestDetails) || isOperation(nextToken)) {
+      return theRequestDetails.getTenantId() + "/" + theRelativeUrl;
+    } else {
+      return theRelativeUrl;
+    }
+  }
 
-	private InvalidRequestException invalid() {
-		return new InvalidRequestException("Invalid or ambiguous " + headerKey + " header");
-	}
+  private boolean isOperation(String theToken) {
+    return theToken.startsWith("$");
+  }
 
-	/** The tenant is not part of the URL, so the server base URL is left as is. */
-	@Override
-	public String massageServerBaseUrl(String theFhirServerBase, RequestDetails theRequestDetails) {
-		Validate.notNull(theRequestDetails.getTenantId(), "theTenantId is not populated on this request");
-		return theFhirServerBase;
-	}
-
-	/** The tenant is not part of the URL, so relative URLs (e.g. transaction entries) are left as is. */
-	@Override
-	public String resolveRelativeUrl(String theRelativeUrl, RequestDetails theRequestDetails) {
-		return theRelativeUrl;
-	}
+  private boolean isResourceType(String token, RequestDetails theRequestDetails) {
+    return theRequestDetails.getFhirContext().getResourceTypes().stream().anyMatch(type -> type.equals(token));
+  }
 }

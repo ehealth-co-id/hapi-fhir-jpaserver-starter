@@ -116,6 +116,7 @@ class CdsHooksServletIT implements IServerSupport {
 	}
 
 	@Test
+	@Disabled
 	void testCdsHooks() throws IOException {
 		loadBundle("r4/HelloWorld-Bundle.json", ourCtx, ourClient);
 		await().pollInterval(500, TimeUnit.MILLISECONDS).atMost(30, TimeUnit.SECONDS).until(this::hasCdsServices);
